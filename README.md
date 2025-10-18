@@ -12,26 +12,30 @@ Stage: 0
 ```js
 let a = 1;
 let b = a; // copy of a
+// can easily workaround by using a=[1] instead, but this adds syntax overhead downstream
 ```
-- The inability for a variable binding to be changed by distant/non-closure code
+- The inability for a primitive binding to be *explicitly* changed from a different scope
 ```js
 function f(n){
 	// has no general/closure access to x, only the copy n
-	// even if this definition was last, variable could be in a very isolated scope
+	// even if this definition was last, variable could be in an inaccessible scope
 }
-let x = 1;
-f(x);
-// above passes a copy and f's code has no good way to change original x
-// f would have to return the new value and overwrite x here
+{
+	let x = 1;
+	f(x);
+	// above passes a copy and f's code has no good way to change original x
+	// f would have to return the new value and overwrite x here
+	// can easily workaround by using [1] instead, but this adds syntax overhead downstream
+}
 ```
 
 ## Proposal
 
 - `Ref()`; a minimal *wrapper* constructor that is functionally transparent, ensuring *pass-by-reference* for any data type it's initialized with.
-- You work with a `Ref` instance exactly like you would the value given to it. This includes all syntax variants, like `n++` and so on. It can be thought of as wrapping the value in `[]` — all operations apply to the value *inside* instead.
+- You work with a `Ref` instance exactly like you would the value given to it. This includes all syntax variants, like `n++` and so on. It can be thought of as wrapping the value in `[](1)` — all operations apply to the value *inside* instead.
 - `Ref` is not just for primitives, its functionalities are useful for non-primitives as well.
 - `valueOf`, `toString`, `toJSON`, and others would be forwarded to the internal value of the Ref instance.
-- Like `Symbol` and `Object`, the global `Ref` API exposes useful methods, outlined below.
+- Like `Symbol`/`Object`/`Reflect`, the global `Ref` API exposes useful methods, outlined below.
 
 ## Why
 Currently, without a pass-by-reference for primitives, **the programmer has no way to explicitly state their desired behavior — pass-by-value or pass-by-reference**. Maybe it can be deduced from the logic (code that reaches back and updates other places; they wrapped it in [], etc), but that is speculative.
@@ -89,20 +93,10 @@ let refA2 = new Ref(refA);
 ---------
 
 ## Methods
-Since a `Ref` instance is intended to be worked with exactly like its value, the global `Ref` API is used to access specific methods, just like `Object`, `Symbol`, etc.
-
-### Ref.is(<Ref instance\>, <Ref instance\>)
-Regular equality on `Ref` instances won't work, since the internal values would be equated not the instances. This method enables comparing if two `Ref` instances are the same instance or not.
-```js
-let refA 	= new Ref('a');
-let refAb 	= refA;
-let refA2	= new Ref('a');
-console.log( Ref.is( refA, refAb ), refA === refAb ); // true, true
-console.log( Ref.is( refA, refA2 ), refA === refA2 ); // false, true
-```
+Since a `Ref` instance is intended to be worked with exactly like its value, the global `Ref` API is used to access specific methods, just like `Object`, `Symbol`, `Reflect`, etc.
 
 ### Ref.set(<Ref instance\>, <new value\>)
-Replaces the internal value of the passed `Ref` instance; can replace any value with any value (no type-matching requirement). See [these examples](#pointer-likeself-modifying) for what becomes possible with `Ref.set()`.
+Replaces the internal value of the passed `Ref` instance; can replace any value with any value (no type-matching requirement). See [these specific examples](#pointer-likeself-modifying) for what becomes possible with `Ref.set()`.
 
 If `<new value>` is a `Ref`, the value inside is used instead. This is to avoid nested Refs, which I believe would be too error-prone to support. If the goal was to merge/replace Refs, use `Ref.replace`.
 
@@ -123,27 +117,20 @@ let refA = new Ref('a');  // Ref<'a'>
 let strA = Ref.get(refA); // String<'a'>
 ```
 
+### Ref.is(<Ref instance\>, <Ref instance\>)
+Regular equality on `Ref` instances won't work, since the internal values would be equated not the instances. This method enables comparing if two `Ref` instances are the same instance or not.
+```js
+let refA 	= new Ref('a');
+let refAb 	= refA;
+let refA2	= new Ref('a');
+console.log( Ref.is( refA, refAb ), refA === refAb ); // true, true
+console.log( Ref.is( refA, refA2 ), refA === refA2 ); // false, true
+```
+
 ### Ref.namespace(<Ref instance\>,<namespace: Symbol\>)
 Set/overwrite the namespace a Ref instance is associated with.
 
 Throws an error if the combination already exists and is not itself (confusion scenario).
-
-### Ref.for(<any\>,<namespace: Symbol\>)
-An equivalent to `Symbol.for()` to make it easy to swap anything to a `Ref` instance that already exists or create a new one. For non-primitives the usual object reference is used, like in `Set`/`Map`.
-
-Pass a `Symbol` namespace specifier as the second argument to create/return a matching `Ref` instance. This avoid issues caused by having only a single global registry.
-
-```js
-let ctx1	= Symbol('some-context-1');
-let refA 	= new Ref('a', ctx1);
-let refA2 	= Ref.for('a', ctx1);
-// refA === refA2; no different than refA2 = refA;
-
-let ctx2	= Symbol('some-context-2');
-let refA3 	= Ref.for('a', ctx2);
-// refA === refA3 only because equality is checking their values, which are primitives
-// Ref.set(refA2,'A') would not affect refA3
-```
 
 ### Ref.replace(<Ref instance\>, <Ref instance\>)
 All references to the first are replaced with the second, regardless of values. This may require Refs to be implemented in engines as 'double-pointers'.
@@ -155,6 +142,23 @@ let setRefs = new Set([ refOld, refNew ]); // { <refOld>, <refNew> }
 Ref.replace( refOld, refNew );
 console.log( arrRefs ); // [ <refOld>, <refNew> ]
 console.log( setRefs ); // { <refOld> } * a retroactive side-effect; TBD *
+```
+
+### Ref.for(<any\>,<namespace: Symbol\>)
+An equivalent to `Symbol.for()` to make it easy to swap anything to a `Ref` instance that already exists or create a new one. For non-primitives the usual object reference is used, like in `Set`/`Map`.
+
+Pass a `Symbol` namespace specifier as the second argument to create/return a matching `Ref` instance. This avoids issues caused by having only a single global registry.
+
+```js
+let ctx1	= Symbol('some-context-1');
+let refA 	= new Ref('a', ctx1);
+let refA2 	= Ref.for('a', ctx1);
+// refA === refA2; no different than refA2 = refA;
+
+let ctx2	= Symbol('some-context-2');
+let refA3 	= Ref.for('a', ctx2);
+// refA === refA3 only because equality is checking their values, which are primitives
+// Ref.set(refA2,'A') would not affect refA3
 ```
 
 ### ~~Ref.copy(<Ref instance\>)~~
@@ -177,6 +181,21 @@ Above is not a dealbreaker, as changing objects in an existing codebase is a sim
 ---------
 
 ## Use Cases
+
+### Shortcuts to Primitives in Objects
+It's easy to have complex data structures with deeply nested values. `Ref` allows you to use a 'shortcut' mapping paradigm for those deep values to expose a convenient get/set API for downstream use, without needing accessor keys. This allows the data structure to change without having to worry about updating the relevant accessor paths throughout the codebase.
+```js
+function someObjMaker(){
+	let deepObject = { k1:{ k2:{ k3:Ref(0), k4:Ref('abc'), k5:Ref([0,1,2]) } } };
+	let { k3, k4, k5 } = deepObject.k1.k2;
+	return { deepObject, shortcuts: { k3, k4, k5 } };
+}
+let O = someObjMaker();
+Ref.set(O.shortcuts.k3,1); // old inflexible way => O.k1.k2.k3 = '1';
+Ref.set(O.shortcuts.k4,'ABC');
+Ref.set(O.shortcuts.k5,[3,4,5]);
+```
+Recall that since `Ref` is pass-by-reference, updating one binding updates all bindings to that value (like changing the contents of a `[]`).
 
 ### Synchronicity
 Particularly for primitive values, being able to natively link a value in multiple data structures would avoid workarounds like wrapping the value in an Array, or doing lookups.
@@ -249,17 +268,30 @@ replaceArr( myList );
 ---------
 
 ## Q&A
-**Q**: **Why locally-transparent syntax, why not `myRef.internalValue = newValue` or `myRef.update( newValue )`**  
-**A**: Such syntax would hide the `Ref` data type behind regular OOP syntax, and since `Ref` is basically 100% side-effect, it needs to be clear that the line is about a `Ref` and 'this line has side-effects'.
+**Q**: **Why transparent syntax, why not `myRef.internalValue = newValue` or `myRef.update( newValue )`**  
+**A**: Such syntax would hide the `Ref` nature behind regular OOP syntax, and since `Ref` is basically 100% side-effect, it needs to be clear when the line of code is about a `Ref` as a way to say 'there will be side-effects'.
 
 ---------
 
-## EXTRA
-### HTMLElement & Ref => linkref keyword
+## Special Treatments
 
-Some properties of HTML elements have a coerce-to-string behavior, for example `textContent` and `innerHTML`. If the RHS of the assignment is entirely a `Ref` instance (no operations), the engine could note this and 'replay' the assignment line whenever the `Ref`'s value changes.
+Since `Ref` is a 'single-value container', it may be suitable for some special treatments, like how `Symbols` was deemed suitable to be used as keys in `Map`.
 
-This would be opt-in via a new leading keyword `linkref`. This would go a long way to having a native MVM mechanism. Consider the examples below:
+### HTMLElement
+
+Consider the `HTMLElement` properties `textContent` and `innerHTML`; they have a coerce-to-string behavior on assignment. The special treatment would occur when a `Ref` is assigned -- the engine would still get and coerce the Ref's internal value to string and apply that to the actual DOM, but it would bind the assigned `Ref` instance to the property as-is, rather than the coerced-to-string copy that it currently does. This effectively means `myElm.textContent = myRef; Ref.is(myElm.textContent, myRef) => true;`
+
+### Why
+To create a 'live' connection between a value and the element's property without extra wiring, as a way to have a more elegant native MVM mechanism. There are 2 possible designs:
+
+**Innate Behavior of HTMLElement + Ref**  
+Opt-in by default; the connection happens automatically when assigning a `Ref` to an HTMLElement's properties. When the Ref's internal value changes, the HTMLElement's property is re-generated. You opt-out by using `Ref.get()` when doing the initial assignment.
+
+**Keyword `linkref`**  
+Opt-in by adding a new leading keyword `linkref` at the start of the assignment line.
+
+**Example**  
+Consider the examples below demonstrating the live connection. The only difference is whether `linkref` is considered necessary to 'turn on' this behavior:
 
 ```js
 // ** when code changes the value **
