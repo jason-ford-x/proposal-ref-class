@@ -1116,7 +1116,7 @@ In both cases above, you can easily work around the problem by using <code>a=[1]
 <ul>
 <li><code>Ref()</code>; a minimal <em>wrapper</em> constructor that is functionally transparent, ensuring <em>pass-by-reference</em> for any data type it&rsquo;s initialized with.</li>
 <li>It can be thought of as a &lsquo;single-value container&rsquo; like wrapping something in <code>[](1)</code> — yet all operations would apply to the value <em>inside</em> instead.</li>
-<li>You work with a <code>Ref</code> instance exactly like you would the value given to it. This includes all syntax variants, like <code>n++</code> and so on.</li>
+<li>You work with a <code>Ref</code> instance exactly like you would the value given to it. Syntax variants like <code>n++</code>/<code>n+='z'</code> are technically shorthands and have special processing anyways.</li>
 <li><code>Ref</code> is not just for primitives, its functionalities are useful for non-primitives as well.</li>
 <li><code>valueOf</code>, <code>toString</code>, <code>toJSON</code>, and others would be forwarded to the internal value of the Ref instance.</li>
 <li>Like <code>Symbol</code>/<code>Object</code>/<code>Reflect</code>, the global <code>Ref</code> API exposes useful methods, outlined below.</li>

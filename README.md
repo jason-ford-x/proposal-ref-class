@@ -39,7 +39,7 @@ In both cases above, you can easily work around the problem by using `a=[1]` and
 
 - `Ref()`; a minimal *wrapper* constructor that is functionally transparent, ensuring *pass-by-reference* for any data type it's initialized with.
 - It can be thought of as a 'single-value container' like wrapping something in `[](1)` — yet all operations would apply to the value *inside* instead.
-- You work with a `Ref` instance exactly like you would the value given to it. This includes all syntax variants, like `n++` and so on.
+- You work with a `Ref` instance exactly like you would the value given to it. Syntax variants like `n++`/`n+='z'` are technically shorthands and have special processing anyways.
 - `Ref` is not just for primitives, its functionalities are useful for non-primitives as well.
 - `valueOf`, `toString`, `toJSON`, and others would be forwarded to the internal value of the Ref instance.
 - Like `Symbol`/`Object`/`Reflect`, the global `Ref` API exposes useful methods, outlined below.
