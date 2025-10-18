@@ -6,33 +6,43 @@ Champion(s): *TBC*
 Author(s): *Jason Ford*  
 Stage: 0
 
-## Problem Statement
+## Problems to Address
 
 - The inability to pass primitives by reference (without wrapping)
 ```js
 let a = 1;
 let b = a; // copy of a
-// can easily workaround by using a=[1] instead, but this adds syntax overhead downstream
 ```
+
 - The inability for a primitive binding to be *explicitly* changed from a different scope
 ```js
 function f(n){
-	// has no general/closure access to x, only the copy n
+	// has no general/closure access to a, only the copy n
 	// even if this definition was last, variable could be in an inaccessible scope
 }
 {
-	let x = 1;
-	f(x);
+	let a = 1;
+	f(a);
 	// above passes a copy and f's code has no good way to change original x
 	// f would have to return the new value and overwrite x here
-	// can easily workaround by using [1] instead, but this adds syntax overhead downstream
 }
 ```
+In both cases above, you can easily work around the problem by using `a=[1]` and changing its content instead, but that approach would add 'silly' syntax overhead to all downstream code.
+
+<detail>
+<summary>
+### Specific Problem Examples</summary>
+- Wasteful data duplication of primitives across object instances (common fields like units, category, etc)
+- Costly loops used to mass-update values across object collections (might require conversion to iterable first)
+- Sending entire objects downstream just so primitive properties can be updated (overloading arguments, exposing sensitive objects, etc)
+- Hand-made events/functions to detect and propagate changes to primitives and/or replacements of non-primitives (entire libraries/frameworks exist just for this)
+</detail>
 
 ## Proposal
 
 - `Ref()`; a minimal *wrapper* constructor that is functionally transparent, ensuring *pass-by-reference* for any data type it's initialized with.
-- You work with a `Ref` instance exactly like you would the value given to it. This includes all syntax variants, like `n++` and so on. It can be thought of as wrapping the value in `[](1)` — all operations apply to the value *inside* instead.
+- It can be thought of as a 'single-value container' like wrapping something in `[](1)` — yet all operations would apply to the value *inside* instead.
+- You work with a `Ref` instance exactly like you would the value given to it. This includes all syntax variants, like `n++` and so on.
 - `Ref` is not just for primitives, its functionalities are useful for non-primitives as well.
 - `valueOf`, `toString`, `toJSON`, and others would be forwarded to the internal value of the Ref instance.
 - Like `Symbol`/`Object`/`Reflect`, the global `Ref` API exposes useful methods, outlined below.
@@ -96,7 +106,7 @@ let refA2 = new Ref(refA);
 Since a `Ref` instance is intended to be worked with exactly like its value, the global `Ref` API is used to access specific methods, just like `Object`, `Symbol`, `Reflect`, etc.
 
 ### Ref.set(<Ref instance\>, <new value\>)
-Replaces the internal value of the passed `Ref` instance; can replace any value with any value (no type-matching requirement). See [these specific examples](#pointer-likeself-modifying) for what becomes possible with `Ref.set()`.
+Replaces the internal value of the passed `Ref` instance; can replace any value with any value (no type-matching requirement). See [these specific examples](#pointer-like-self-modify) for what becomes possible with `Ref.set()`.
 
 If `<new value>` is a `Ref`, the value inside is used instead. This is to avoid nested Refs, which I believe would be too error-prone to support. If the goal was to merge/replace Refs, use `Ref.replace`.
 
@@ -162,7 +172,7 @@ let refA3 	= Ref.for('a', ctx2);
 ```
 
 ### ~~Ref.copy(<Ref instance\>)~~
-A `copy` or `clone` method is not provided on purposes, as it would be misleading. Since the value can be a primitive or non-primitive, it could imply making a copy of a non-primitive, which is a non-trivial action.
+A `copy` or `clone` method is not provided on purpose, as it would be misleading. Since the value can be a primitive or non-primitive, it could imply making a copy of a non-primitive, which is a non-trivial action.
 
 Instead, pass the Ref instance back into the Ref constructor (`new Ref(<Ref>)`) as outlined [here](#passing-ref-as-value).
 
@@ -221,7 +231,7 @@ const records = [
 records.forEach((record) => record.category = Ref.for(record.category) );
 ```
 
-### Pointer-Like/Self-Modifying
+### Pointer-Like - Self Modify
 Languages with pointers have a mechanical separation between reference and value that allows for repointing and single-sourcing. Javascript only has a clumsy way to do this (Array(1)) that incurs extra markup (a[0], a.get(0), etc). A `Ref` class would add some attractive pointer-like features, example below:
 ```js
 // pointer-like - for primitives
@@ -244,6 +254,9 @@ format( 'toUpperCase', refText, refId );
 
 console.log( refText, refId ); // "SOME TEXT", "#0000012345"
 ```
+
+### Pointer-Like - Swap Object References
+Giving `Ref` a non-primitive mainly gives you the ability to replace all bindings to that non-primitive with an entirely different value. This obsoletes the trick of emptying then re-filling an object just to preserve its bindings. This is possible because `Ref` is itself a 'single-value container' and all operations apply to the value inside at `get`/`set` time.
 ```js
 // pointer-like - for objects
 
@@ -279,7 +292,7 @@ Since `Ref` is a 'single-value container', it may be suitable for some special t
 
 ### HTMLElement
 
-Consider the `HTMLElement` properties `textContent` and `innerHTML`; they have a coerce-to-string behavior on assignment. The special treatment would occur when a `Ref` is assigned -- the engine would still get and coerce the Ref's internal value to string and apply that to the actual DOM, but it would bind the assigned `Ref` instance to the property as-is, rather than the coerced-to-string copy that it currently does. This effectively means `myElm.textContent = myRef; Ref.is(myElm.textContent, myRef) => true;`
+Consider the `HTMLElement` properties `textContent` and `innerHTML`; they have a coerce-to-string behavior on assignment. The special treatment would occur when a `Ref` is assigned -- the engine would still get and coerce the Ref's internal value to string and apply that to the actual DOM, but it would bind the assigned `Ref` instance to the property as-is, rather than the coerced-to-string copy that it currently does. This effectively means `myElm.textContent = myRef; Ref.is(myElm.textContent, myRef) => true;`.
 
 ### Why
 To create a 'live' connection between a value and the element's property without extra wiring, as a way to have a more elegant native MVM mechanism. There are 2 possible designs:

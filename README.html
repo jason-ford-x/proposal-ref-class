@@ -1081,31 +1081,45 @@ body .markdown-body
 <p>Champion(s): <em>TBC</em><br />
 Author(s): <em>Jason Ford</em><br />
 Stage: 0</p>
-<h2 id="problem-statement">Problem Statement<a class="headerlink" href="#problem-statement" title="Permanent link"></a></h2>
+<h2 id="problems-to-address">Problems to Address<a class="headerlink" href="#problems-to-address" title="Permanent link"></a></h2>
 <ul>
-<li>The inability to pass primitives by reference (without wrapping)
+<li>
+<p>The inability to pass primitives by reference (without wrapping)
 <div class="highlight"><pre><span class="kd">let</span> <span class="nx">a</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
 <span class="kd">let</span> <span class="nx">b</span> <span class="o">=</span> <span class="nx">a</span><span class="p">;</span> <span class="c1">// copy of a</span>
-<span class="c1">// can easily workaround by using a=[1] instead, but this adds syntax overhead downstream</span>
-</pre></div></li>
-<li>The inability for a primitive binding to be <em>explicitly</em> changed from a different scope
+</pre></div></p>
+</li>
+<li>
+<p>The inability for a primitive binding to be <em>explicitly</em> changed from a different scope
 <div class="highlight"><pre><span class="kd">function</span> <span class="nx">f</span><span class="p">(</span><span class="nx">n</span><span class="p">){</span>
-    <span class="c1">// has no general/closure access to x, only the copy n</span>
+    <span class="c1">// has no general/closure access to a, only the copy n</span>
     <span class="c1">// even if this definition was last, variable could be in an inaccessible scope</span>
 <span class="p">}</span>
 <span class="p">{</span>
-    <span class="kd">let</span> <span class="nx">x</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
-    <span class="nx">f</span><span class="p">(</span><span class="nx">x</span><span class="p">);</span>
+    <span class="kd">let</span> <span class="nx">a</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="nx">f</span><span class="p">(</span><span class="nx">a</span><span class="p">);</span>
     <span class="c1">// above passes a copy and f&#39;s code has no good way to change original x</span>
     <span class="c1">// f would have to return the new value and overwrite x here</span>
-    <span class="c1">// can easily workaround by using [1] instead, but this adds syntax overhead downstream</span>
 <span class="p">}</span>
-</pre></div></li>
+</pre></div>
+In both cases above, you can easily work around the problem by using <code>a=[1]</code> and changing its content instead, but that approach would add &lsquo;silly&rsquo; syntax overhead to all downstream code.</p>
+</li>
+</ul>
+<p><detail>
+<summary></p>
+<h3 id="specific-problem-examples">Specific Problem Examples</summary><a class="headerlink" href="#specific-problem-examples" title="Permanent link"></a></h3>
+<ul>
+<li>Wasteful data duplication of primitives across object instances (common fields like units, category, etc)</li>
+<li>Costly loops used to mass-update values across object collections (might require conversion to iterable first)</li>
+<li>Sending entire objects downstream just so primitive properties can be updated (overloading arguments, exposing sensitive objects, etc)</li>
+<li>Hand-made events/functions to detect and propagate changes to primitives and/or replacements of non-primitives (entire libraries/frameworks exist just for this)
+</detail></li>
 </ul>
 <h2 id="proposal">Proposal<a class="headerlink" href="#proposal" title="Permanent link"></a></h2>
 <ul>
 <li><code>Ref()</code>; a minimal <em>wrapper</em> constructor that is functionally transparent, ensuring <em>pass-by-reference</em> for any data type it&rsquo;s initialized with.</li>
-<li>You work with a <code>Ref</code> instance exactly like you would the value given to it. This includes all syntax variants, like <code>n++</code> and so on. It can be thought of as wrapping the value in <code>[](1)</code> — all operations apply to the value <em>inside</em> instead.</li>
+<li>It can be thought of as a &lsquo;single-value container&rsquo; like wrapping something in <code>[](1)</code> — yet all operations would apply to the value <em>inside</em> instead.</li>
+<li>You work with a <code>Ref</code> instance exactly like you would the value given to it. This includes all syntax variants, like <code>n++</code> and so on.</li>
 <li><code>Ref</code> is not just for primitives, its functionalities are useful for non-primitives as well.</li>
 <li><code>valueOf</code>, <code>toString</code>, <code>toJSON</code>, and others would be forwarded to the internal value of the Ref instance.</li>
 <li>Like <code>Symbol</code>/<code>Object</code>/<code>Reflect</code>, the global <code>Ref</code> API exposes useful methods, outlined below.</li>
@@ -1152,7 +1166,7 @@ Stage: 0</p>
 <h2 id="methods">Methods<a class="headerlink" href="#methods" title="Permanent link"></a></h2>
 <p>Since a <code>Ref</code> instance is intended to be worked with exactly like its value, the global <code>Ref</code> API is used to access specific methods, just like <code>Object</code>, <code>Symbol</code>, <code>Reflect</code>, etc.</p>
 <h3 id="refsetref-instance-new-value">Ref.set(&lt;Ref instance>, &lt;new value>)<a class="headerlink" href="#refsetref-instance-new-value" title="Permanent link"></a></h3>
-<p>Replaces the internal value of the passed <code>Ref</code> instance; can replace any value with any value (no type-matching requirement). See <a href="#pointer-likeself-modifying">these specific examples</a> for what becomes possible with <code>Ref.set()</code>.</p>
+<p>Replaces the internal value of the passed <code>Ref</code> instance; can replace any value with any value (no type-matching requirement). See <a href="#pointer-like-self-modify">these specific examples</a> for what becomes possible with <code>Ref.set()</code>.</p>
 <p>If <code>&lt;new value&gt;</code> is a <code>Ref</code>, the value inside is used instead. This is to avoid nested Refs, which I believe would be too error-prone to support. If the goal was to merge/replace Refs, use <code>Ref.replace</code>.</p>
 <div class="highlight"><pre><span class="kd">let</span> <span class="nx">data1</span> <span class="o">=</span> <span class="p">[</span> <span class="nx">refA</span> <span class="p">];</span>
 <span class="kd">let</span> <span class="nx">data2</span> <span class="o">=</span> <span class="p">{</span> <span class="s1">&#39;text&#39;</span><span class="o">:</span><span class="nx">refA</span> <span class="p">};</span>
@@ -1203,7 +1217,7 @@ Stage: 0</p>
 </pre></div>
 
 <h3 id="refcopyref-instance"><del>Ref.copy(&lt;Ref instance>)</del><a class="headerlink" href="#refcopyref-instance" title="Permanent link"></a></h3>
-<p>A <code>copy</code> or <code>clone</code> method is not provided on purposes, as it would be misleading. Since the value can be a primitive or non-primitive, it could imply making a copy of a non-primitive, which is a non-trivial action.</p>
+<p>A <code>copy</code> or <code>clone</code> method is not provided on purpose, as it would be misleading. Since the value can be a primitive or non-primitive, it could imply making a copy of a non-primitive, which is a non-trivial action.</p>
 <p>Instead, pass the Ref instance back into the Ref constructor (<code>new Ref(&lt;Ref&gt;)</code>) as outlined <a href="#passing-ref-as-value">here</a>.</p>
 <hr />
 <h2 id="refactoring-dangers">Refactoring Dangers<a class="headerlink" href="#refactoring-dangers" title="Permanent link"></a></h2>
@@ -1250,7 +1264,7 @@ Recall that since <code>Ref</code> is pass-by-reference, updating one binding up
 <span class="c1">// when receiving data from APIs, there tends to be repeated values. Use Ref.for() to swap to single instance</span>
 <span class="nx">records</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">record</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="nx">record</span><span class="p">.</span><span class="nx">category</span> <span class="o">=</span> <span class="nx">Ref</span><span class="p">.</span><span class="k">for</span><span class="p">(</span><span class="nx">record</span><span class="p">.</span><span class="nx">category</span><span class="p">)</span> <span class="p">);</span>
 </pre></div></p>
-<h3 id="pointer-likeself-modifying">Pointer-Like/Self-Modifying<a class="headerlink" href="#pointer-likeself-modifying" title="Permanent link"></a></h3>
+<h3 id="pointer-like-self-modify">Pointer-Like - Self Modify<a class="headerlink" href="#pointer-like-self-modify" title="Permanent link"></a></h3>
 <p>Languages with pointers have a mechanical separation between reference and value that allows for repointing and single-sourcing. Javascript only has a clumsy way to do this (Array(1)) that incurs extra markup (a[0], a.get(0), etc). A <code>Ref</code> class would add some attractive pointer-like features, example below:
 <div class="highlight"><pre><span class="c1">// pointer-like - for primitives</span>
 
@@ -1271,7 +1285,9 @@ Recall that since <code>Ref</code> is pass-by-reference, updating one binding up
 <span class="c1">// didn&#39;t have to return/re-assign/pass myObj in order to &#39;update&#39; myObj!</span>
 
 <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">(</span> <span class="nx">refText</span><span class="p">,</span> <span class="nx">refId</span> <span class="p">);</span> <span class="c1">// &quot;SOME TEXT&quot;, &quot;#0000012345&quot;</span>
-</pre></div>
+</pre></div></p>
+<h3 id="pointer-like-swap-object-references">Pointer-Like - Swap Object References<a class="headerlink" href="#pointer-like-swap-object-references" title="Permanent link"></a></h3>
+<p>Giving <code>Ref</code> a non-primitive mainly gives you the ability to replace all bindings to that non-primitive with an entirely different value. This obsoletes the trick of emptying then re-filling an object just to preserve its bindings. This is possible because <code>Ref</code> is itself a &lsquo;single-value container&rsquo; and all operations apply to the value inside at <code>get</code>/<code>set</code> time.
 <div class="highlight"><pre><span class="c1">// pointer-like - for objects</span>
 
 <span class="kd">let</span> <span class="nx">myList</span>      <span class="o">=</span> <span class="k">new</span> <span class="nx">Ref</span><span class="p">([</span><span class="mi">1</span><span class="p">]);</span>
@@ -1297,7 +1313,7 @@ Recall that since <code>Ref</code> is pass-by-reference, updating one binding up
 <h2 id="special-treatments">Special Treatments<a class="headerlink" href="#special-treatments" title="Permanent link"></a></h2>
 <p>Since <code>Ref</code> is a &lsquo;single-value container&rsquo;, it may be suitable for some special treatments, like how <code>Symbols</code> was deemed suitable to be used as keys in <code>Map</code>.</p>
 <h3 id="htmlelement">HTMLElement<a class="headerlink" href="#htmlelement" title="Permanent link"></a></h3>
-<p>Consider the <code>HTMLElement</code> properties <code>textContent</code> and <code>innerHTML</code>; they have a coerce-to-string behavior on assignment. The special treatment would occur when a <code>Ref</code> is assigned &ndash; the engine would still get and coerce the Ref&rsquo;s internal value to string and apply that to the actual DOM, but it would bind the assigned <code>Ref</code> instance to the property as-is, rather than the coerced-to-string copy that it currently does. This effectively means <code>myElm.textContent = myRef; Ref.is(myElm.textContent, myRef) =&gt; true;</code></p>
+<p>Consider the <code>HTMLElement</code> properties <code>textContent</code> and <code>innerHTML</code>; they have a coerce-to-string behavior on assignment. The special treatment would occur when a <code>Ref</code> is assigned &ndash; the engine would still get and coerce the Ref&rsquo;s internal value to string and apply that to the actual DOM, but it would bind the assigned <code>Ref</code> instance to the property as-is, rather than the coerced-to-string copy that it currently does. This effectively means <code>myElm.textContent = myRef; Ref.is(myElm.textContent, myRef) =&gt; true;</code>.</p>
 <h3 id="why_1">Why<a class="headerlink" href="#why_1" title="Permanent link"></a></h3>
 <p>To create a &lsquo;live&rsquo; connection between a value and the element&rsquo;s property without extra wiring, as a way to have a more elegant native MVM mechanism. There are 2 possible designs:</p>
 <p><strong>Innate Behavior of HTMLElement + Ref</strong><br />
