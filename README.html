@@ -1105,12 +1105,13 @@ Stage: 0</p>
 In both cases above, you can easily work around the problem by using <code>a=[1]</code> and changing its content instead, but that approach would add &lsquo;silly&rsquo; syntax overhead to all downstream code.</p>
 </li>
 </ul>
-<p><detail><summary>### Specific Problem Examples</summary>
-- Wasteful data duplication of primitives across object instances (common fields like units, category, etc)
-- Costly loops used to mass-update values across object collections (might require conversion to iterable first)
-- Sending entire objects downstream just so primitive properties can be updated (overloading arguments, exposing sensitive objects, etc)
-- Hand-made events/functions to detect and propagate changes to primitives and/or replacements of non-primitives (entire libraries/frameworks exist just for this)
-</detail></p>
+<h5 id="more-specific-examples-of-problems">More Specific Examples of Problems<a class="headerlink" href="#more-specific-examples-of-problems" title="Permanent link"></a></h5>
+<ul>
+<li>Wasteful data duplication of primitives across object instances (common fields like units, category, etc)</li>
+<li>Costly loops used to mass-update values across object collections (might require conversion to iterable first)</li>
+<li>Sending entire objects downstream just so primitive properties can be updated (overloading arguments, exposing sensitive objects, etc)</li>
+<li>Hand-made events/functions to detect and propagate changes to primitives and/or replacements of non-primitives (libraries/frameworks try to address this)</li>
+</ul>
 <h2 id="proposal">Proposal<a class="headerlink" href="#proposal" title="Permanent link"></a></h2>
 <ul>
 <li><code>Ref()</code>; a minimal <em>wrapper</em> constructor that is functionally transparent, ensuring <em>pass-by-reference</em> for any data type it&rsquo;s initialized with.</li>

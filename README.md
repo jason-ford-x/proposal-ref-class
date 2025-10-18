@@ -29,12 +29,11 @@ function f(n){
 ```
 In both cases above, you can easily work around the problem by using `a=[1]` and changing its content instead, but that approach would add 'silly' syntax overhead to all downstream code.
 
-<detail><summary>### Specific Problem Examples</summary>
+##### More Specific Examples of Problems
 - Wasteful data duplication of primitives across object instances (common fields like units, category, etc)
 - Costly loops used to mass-update values across object collections (might require conversion to iterable first)
 - Sending entire objects downstream just so primitive properties can be updated (overloading arguments, exposing sensitive objects, etc)
-- Hand-made events/functions to detect and propagate changes to primitives and/or replacements of non-primitives (entire libraries/frameworks exist just for this)
-</detail>
+- Hand-made events/functions to detect and propagate changes to primitives and/or replacements of non-primitives (libraries/frameworks try to address this)
 
 ## Proposal
 
