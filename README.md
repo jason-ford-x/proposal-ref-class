@@ -193,8 +193,18 @@ Above is not a dealbreaker, as changing objects in an existing codebase is a sim
 It's easy to have complex data structures with deeply nested values. `Ref` allows you to use a 'shortcut' mapping paradigm for those deep values to expose a convenient get/set API for downstream use, without needing accessor keys. This allows the data structure to change without having to worry about updating the relevant accessor paths throughout the codebase.
 ```js
 function someObjMaker(){
-	let deepObject = { k1:{ k2:{ k3:Ref(0), k4:Ref('abc'), k5:Ref([0,1,2]) } } };
-	let { k3, k4, k5 } = deepObject.k1.k2;
+	let v3 			= Ref(0)
+	let v4 			= Ref('abc')
+	let v5 			= Ref([0,1,2])
+	let deepObject 	= {
+						k1:{
+							k2:{
+								k3: v3,
+							},
+							k4: v4,
+						},
+						k5: v5
+					};
 	return { deepObject, shortcuts: { k3, k4, k5 } };
 }
 let O = someObjMaker();
